@@ -15,11 +15,17 @@ load_dotenv()
 app = Flask(__name__)
 CORS(app)  # 允许跨域
 
-# 初始化DeepSeek客户端（兼容OpenAI接口）
-client = OpenAI(
-    api_key=os.getenv("DEEPSEEK_API_KEY"),
-    base_url="https://api.deepseek.com"
-)
+# 延迟初始化DeepSeek客户端，避免启动时因缺少API Key崩溃
+client = None
+
+def get_client():
+    global client
+    if client is None:
+        api_key = os.getenv("DEEPSEEK_API_KEY", "")
+        if not api_key:
+            raise ValueError("DEEPSEEK_API_KEY 环境变量未设置")
+        client = OpenAI(api_key=api_key, base_url="https://api.deepseek.com")
+    return client
 
 # 系统提示词
 TRANSLATE_SYSTEM_PROMPT = """你是一位精通古籍的学者，擅长将古文翻译成通俗易懂的现代白话文。
@@ -55,7 +61,8 @@ def translate():
         if not text:
             return jsonify({"error": "请输入古文内容"}), 400
         
-        response = client.chat.completions.create(
+        ai = get_client()
+        response = ai.chat.completions.create(
             model="deepseek-chat",
             messages=[
                 {"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
@@ -91,7 +98,8 @@ def annotate():
         if context:
             prompt += f"\n\n上下文：{context}"
         
-        response = client.chat.completions.create(
+        ai = get_client()
+        response = ai.chat.completions.create(
             model="deepseek-chat",
             messages=[
                 {"role": "system", "content": ANNOTATE_SYSTEM_PROMPT},
@@ -125,7 +133,8 @@ def qa():
         
         prompt = f"古文内容：\n{context}\n\n问题：{question}" if context else question
         
-        response = client.chat.completions.create(
+        ai = get_client()
+        response = ai.chat.completions.create(
             model="deepseek-chat",
             messages=[
                 {"role": "system", "content": QA_SYSTEM_PROMPT},
