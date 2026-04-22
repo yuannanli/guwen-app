@@ -1,34 +1,30 @@
+// Auto-generated - no external dependencies
 exports.handler = async (event) => {
-  const corsHeaders = {
-    "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "POST, OPTIONS",
-    "Access-Control-Allow-Headers": "Content-Type",
-    "Content-Type": "application/json",
-  };
-
   if (event.httpMethod === "OPTIONS") {
-    return { statusCode: 204, headers: corsHeaders, body: "" };
+    return { statusCode: 204, headers: {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json"}, body: "" };
   }
-
   if (event.httpMethod !== "POST") {
-    return { statusCode: 405, headers: corsHeaders, body: JSON.stringify({ error: "Method not allowed" }) };
+    return { statusCode: 405, headers: {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json"}, body: JSON.stringify({ error: "Method not allowed" }) };
   }
 
   try {
-    const { word, context } = JSON.parse(event.body || "{}");
-    if (!word) {
-      return { statusCode: 400, headers: corsHeaders, body: JSON.stringify({ error: "请提供要注释的词语" }) };
+    const data = JSON.parse(event.body || "{}");
+    const text = data.word;
+    if (!text) {
+      return { statusCode: 400, headers: {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json"}, body: JSON.stringify({ error: "输入不能为空" }) };
     }
 
     const apiKey = process.env.DEEPSEEK_API_KEY;
     if (!apiKey) {
-      return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: "API key not configured" }) };
+      return { statusCode: 500, headers: {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json"}, body: JSON.stringify({ error: "API key未配置" }) };
     }
 
-    let prompt = `请为以下古籍词语提供详细注释："${word}"`;
-    if (context) prompt += `\n\n原文语境：${context}`;
+    const context = data.context || "";
+    const userContent = context
+      ? `相关文献：\\n${context}\\n\\n问题：` + text
+      : text;
 
-    const response = await fetch("https://api.deepseek.com/chat/completions", {
+    const resp = await fetch("https://api.deepseek.com/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${apiKey}`,
@@ -37,29 +33,25 @@ exports.handler = async (event) => {
       body: JSON.stringify({
         model: "deepseek-chat",
         messages: [
-          {
-            role: "system",
-            content: `你是一位古籍研究专家，愿意为用户挑选的字词提供详细注释。
-注释要求：
-1. 解释字词的基本含义
-2. 在古籍中的特殊用法和含义
-3. 相关的典故和出处
-4. 用通俗易懂的语言解释`
-          },
-          { role: "user", content: prompt }
+          { role: "system", content: "你是一位古籍研究专家，愿意为用户挑选的字词提供详细注释。\n注释要求：\n1. 解释字词的基本含义\n2. 在古籍中的特殊用法和含义\n3. 相关的典故和出处\n4. 用通俗易懂的语言解释" },
+          { role: "user", content: userContent }
         ],
         temperature: 0.7,
         max_tokens: 1000,
       }),
     });
 
-    const data = await response.json();
+    const result = await resp.json();
+    if (!resp.ok) {
+      return { statusCode: 502, headers: {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json"}, body: JSON.stringify({ error: result.error?.message || "DeepSeek API错误" }) };
+    }
+
     return {
       statusCode: 200,
-      headers: corsHeaders,
-      body: JSON.stringify({ success: true, annotation: data.choices[0].message.content }),
+      headers: {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json"},
+      body: JSON.stringify({ success: true, word: result.choices[0].message.content }),
     };
   } catch (err) {
-    return { statusCode: 500, headers: corsHeaders, body: JSON.stringify({ error: err.message }) };
+    return { statusCode: 500, headers: {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Methods": "POST, OPTIONS", "Access-Control-Allow-Headers": "Content-Type", "Content-Type": "application/json"}, body: JSON.stringify({ error: err.message }) };
   }
 };
