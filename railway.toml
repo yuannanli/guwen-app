@@ -1,0 +1,9 @@
+[build]
+builder = "NIXPACKS"
+
+[build.nixpacks]
+distro = "ubuntu"
+
+[deploy]
+startCommand = "gunicorn -b 0.0.0.0:$PORT -w 4 app:app"
+numReplicas = 1
